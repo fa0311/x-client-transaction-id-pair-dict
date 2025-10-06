@@ -28,6 +28,10 @@ jobs:
       - run: npm install
       - run: npm run start
 
+      - name: Check pair.json array length
+        run: |
+          jq -e 'length > 0' pair.json || (echo "Error: pair.json array is empty" && exit 1)
+
       - name: Commit results
         run: |
           if git diff --quiet; then

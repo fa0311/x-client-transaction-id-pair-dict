@@ -7,17 +7,39 @@ interface Dict {
   verification: string;
 }
 
+const proxies = (process.env.PROXY_LIST ?? "")
+  .split("\n")
+  .map((line) => line.trim())
+  .filter(Boolean)
+  .map((line) => {
+    const [host, port, username, password] = line.split(":");
+    return { host, port, username, password };
+  });
+const proxy = proxies.length > 0 ? proxies[Math.floor(Math.random() * proxies.length)] : undefined;
+
 const dict: Dict[] = [];
 const max = 30;
 const browser = await puppeteer.launch({
   headless: true,
-  args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-accelerated-2d-canvas", "--disable-gpu"],
+  protocolTimeout: 60000,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-accelerated-2d-canvas",
+    "--disable-gpu",
+    ...(proxy ? [`--proxy-server=http://${proxy.host}:${proxy.port}`] : []),
+  ],
 });
 
 for (let i = 0; i < max; i++) {
   console.log(`${i} / ${max}`);
+  const page = await browser.newPage();
   try {
-    const session = await createSession(browser, undefined);
+    if (proxy) {
+      await page.authenticate({ username: proxy.username, password: proxy.password });
+    }
+    const session = await createSession(browser, page);
     const keyConverter = await session.initKeyConverter();
     const animationKey = await keyConverter();
     dict.push({
@@ -26,6 +48,8 @@ for (let i = 0; i < max; i++) {
     });
   } catch (e) {
     console.error(e);
+  } finally {
+    await page.close().catch(() => {});
   }
 }
 

@@ -27,6 +27,8 @@ jobs:
 
       - run: npm install
       - run: npm run start
+        env:
+          PROXY_LIST: ${{ secrets.PROXY_LIST }}
 
       - name: Check pair.json array length
         run: |

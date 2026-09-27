@@ -7,6 +7,21 @@ interface Dict {
   verification: string;
 }
 
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+
 const proxies = (process.env.PROXY_LIST ?? "")
   .split("\n")
   .map((line) => line.trim())
@@ -36,12 +51,16 @@ for (let i = 0; i < max; i++) {
   console.log(`${i} / ${max}`);
   const page = await browser.newPage();
   try {
+    page.setDefaultNavigationTimeout(15000);
+    const userAgent = await page.evaluate(() => (globalThis as any).navigator.userAgent);
+    await page.setUserAgent(userAgent.replace("HeadlessChrome/", "Chrome/"));
+
     if (proxy) {
       await page.authenticate({ username: proxy.username, password: proxy.password });
     }
     const session = await createSession(browser, page);
     const keyConverter = await session.initKeyConverter();
-    const animationKey = await keyConverter();
+    const animationKey = await withTimeout(keyConverter(), 10000);
     dict.push({
       animationKey: animationKey.split("obfiowerehiring")[1],
       verification: session.verification,

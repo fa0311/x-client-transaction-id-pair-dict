@@ -1,6 +1,4 @@
 import fs from "fs/promises";
-import http from "node:http";
-import { SocksClient } from "socks";
 import puppeteer from "puppeteer";
 import { createSession } from "x-client-transaction-id-extract-browser";
 
@@ -24,7 +22,7 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
     );
   });
 
-// PROXY_LIST: one proxy URL per line (socks5h://user:pass@host:port); legacy host:port:user:pass means HTTP
+// PROXY_LIST: one HTTP CONNECT proxy URL per line (http://user:pass@host:port); legacy host:port:user:pass means the same
 const parseProxy = (line: string) => {
   if (line.includes("://")) return new URL(line);
   const [host, port, username, password] = line.split(":");
@@ -38,41 +36,7 @@ const proxies = (process.env.PROXY_LIST ?? "")
   .map(parseProxy);
 const proxy = proxies.length > 0 ? proxies[Math.floor(Math.random() * proxies.length)] : undefined;
 
-// Chrome cannot authenticate against SOCKS proxies: expose the SOCKS upstream as a local HTTP CONNECT proxy
-const socksBridge = async (upstream: URL) => {
-  const server = http.createServer((_, res) => res.writeHead(405).end());
-  server.on("connect", async (req, socket, head) => {
-    const [host, port] = (req.url ?? "").split(":");
-    try {
-      const { socket: remote } = await SocksClient.createConnection({
-        proxy: {
-          host: upstream.hostname,
-          port: Number(upstream.port),
-          type: 5,
-          userId: decodeURIComponent(upstream.username),
-          password: decodeURIComponent(upstream.password),
-        },
-        command: "connect",
-        destination: { host, port: Number(port) },
-      });
-      socket.on("error", () => remote.destroy());
-      remote.on("error", () => socket.destroy());
-      socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
-      remote.write(head);
-      socket.pipe(remote).pipe(socket);
-    } catch (e) {
-      console.error(e);
-      socket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n");
-    }
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const address = server.address();
-  if (address === null || typeof address === "string") throw new Error("bridge not listening");
-  return { url: `http://127.0.0.1:${address.port}`, close: () => server.close() };
-};
-
-const bridge = proxy?.protocol.startsWith("socks") ? await socksBridge(proxy) : undefined;
-const proxyServer = bridge?.url ?? (proxy ? `${proxy.protocol}//${proxy.host}` : undefined);
+const proxyServer = proxy ? `${proxy.protocol}//${proxy.host}` : undefined;
 
 const dict: Dict[] = [];
 const max = Number(process.env.PAIR_MAX ?? 30);
@@ -97,7 +61,7 @@ for (let i = 0; i < max; i++) {
     const userAgent = await page.evaluate(() => (globalThis as any).navigator.userAgent);
     await page.setUserAgent(userAgent.replace("HeadlessChrome/", "Chrome/"));
 
-    if (proxy && !bridge && proxy.username) {
+    if (proxy?.username) {
       await page.authenticate({ username: decodeURIComponent(proxy.username), password: decodeURIComponent(proxy.password) });
     }
     const session = await createSession(browser, page);
@@ -116,4 +80,3 @@ for (let i = 0; i < max; i++) {
 
 await fs.writeFile("pair.json", JSON.stringify(dict, null, 2));
 await browser.close();
-bridge?.close();

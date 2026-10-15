@@ -22,18 +22,12 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
     );
   });
 
-// PROXY_LIST: one HTTP CONNECT proxy URL per line (http://user:pass@host:port); legacy host:port:user:pass means the same
-const parseProxy = (line: string) => {
-  if (line.includes("://")) return new URL(line);
-  const [host, port, username, password] = line.split(":");
-  return new URL(`http://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`);
-};
-
+// PROXY_LIST: one HTTP CONNECT proxy URL per line (http://user:pass@host:port)
 const proxies = (process.env.PROXY_LIST ?? "")
   .split("\n")
   .map((line) => line.trim())
   .filter(Boolean)
-  .map(parseProxy);
+  .map((line) => new URL(line));
 const proxy = proxies.length > 0 ? proxies[Math.floor(Math.random() * proxies.length)] : undefined;
 
 const proxyServer = proxy ? `${proxy.protocol}//${proxy.host}` : undefined;

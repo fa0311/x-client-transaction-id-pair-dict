@@ -6,29 +6,34 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   run-commands:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
+          cache: pnpm
 
       - name: Commit Setup
         run: |
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Action"
 
-      - run: npm install
-      - run: npm run start
-        env:
-          PROXY_LIST: ${{ secrets.PROXY_LIST }}
+      - uses: fa0311/twitter-secrets@main
+        with:
+          age-key: ${{ secrets.SOPS_AGE_KEY }}
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm start
 
       - name: Check pair.json array length
         run: |

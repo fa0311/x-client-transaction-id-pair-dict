@@ -55,6 +55,8 @@ const socksBridge = async (upstream: URL) => {
         command: "connect",
         destination: { host, port: Number(port) },
       });
+      socket.on("error", () => remote.destroy());
+      remote.on("error", () => socket.destroy());
       socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
       remote.write(head);
       socket.pipe(remote).pipe(socket);

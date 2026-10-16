@@ -3,15 +3,19 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "start": "node --loader ts-node/esm main.ts"
+    "start": "node main.ts"
   },
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^24.7.2",
+    "puppeteer": "^24.24.0",
     "x-client-transaction-id-extract-browser": "^0.0.3"
   },
   "devDependencies": {
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=22.18.0"
   }
 }

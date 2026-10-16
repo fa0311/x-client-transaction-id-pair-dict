@@ -1,0 +1,4 @@
+allowBuilds:
+  puppeteer: true
+minimumReleaseAgeExclude:
+  - x-client-transaction-id-extract-browser
